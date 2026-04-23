@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShipBrands Debts</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a1a2e">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#f5f4f1;--surface:#fff;--border:#e4e0d8;--accent:#1a1a2e;
+  --red:#d63031;--red-soft:rgba(214,48,49,0.09);
+  --green:#00897b;--green-soft:rgba(0,137,123,0.09);
+  --blue:#1565c0;--blue-soft:rgba(21,101,192,0.09);
+  --text:#18181b;--muted:#78716c;--subtle:#f0ede7;
+  --sh:0 1px 8px rgba(0,0,0,0.07),0 0 0 1px rgba(0,0,0,0.04);
+  --sh-lg:0 8px 28px rgba(0,0,0,0.13);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+.app{max-width:880px;margin:0 auto;padding:32px 16px;position:relative;z-index:1;}
+
+header{background:var(--accent);color:#fff;border-radius:18px;padding:24px 28px;margin-bottom:22px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 4px 24px rgba(26,26,46,0.3);flex-wrap:wrap;}
+.h-left{display:flex;align-items:center;gap:13px;}
+.h-icon{width:48px;height:48px;background:rgba(255,255,255,0.12);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.h-title h1{font-size:21px;font-weight:800;letter-spacing:-0.4px;}
+.h-title p{font-size:12px;opacity:.55;}
+.h-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+.h-stats{display:flex;gap:10px;}
+.hstat{text-align:center;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:9px 16px;min-width:95px;}
+.hstat-val{font-size:17px;font-weight:800;font-family:'DM Mono',monospace;}
+.hstat-lbl{font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:.7px;}
+.hstat-outstanding{background:rgba(251,191,36,0.18) !important;border-color:rgba(251,191,36,0.35) !important;}
+.hstat-outstanding .hstat-val{color:#fbbf24;}
+
+/* CONTROLS */
+.controls{display:flex;gap:9px;margin-bottom:16px;flex-wrap:wrap;}
+.search-wrap{flex:1;min-width:160px;position:relative;}
+.search-wrap input{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px 11px 38px;color:var(--text);outline:none;box-shadow:var(--sh);}
+.s-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px;}
+.btn{padding:10px 17px;border-radius:10px;border:none;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;transition:all .18s;white-space:nowrap;box-shadow:var(--sh);}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-ghost{background:var(--surface);color:var(--muted);border:1.5px solid var(--border);}
+.btn-migrate{background:#fbbf24;color:#000;display:none;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.42);backdrop-filter:blur(4px);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;}
+.overlay.open{display:flex;}
+.modal{background:var(--surface);border-radius:18px;padding:26px;width:100%;max-width:400px;box-shadow:var(--sh-lg);}
+.m-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.m-hd h2{font-size:16px;font-weight:800;}
+.fg{margin-bottom:13px;}
+.fg label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;}
+.fg input{width:100%;background:var(--subtle);border:1.5px solid var(--border);border-radius:8px;padding:9px 11px;outline:none;}
+.m-ft{display:flex;gap:8px;justify-content:flex-end;}
+
+/* CARDS */
+.ccard{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;margin-bottom:9px;overflow:hidden;}
+.c-hd{display:flex;align-items:center;padding:14px 16px;cursor:pointer;gap:11px;}
+.avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;}
+.cname{font-weight:700;font-size:15px;}
+.cmeta{font-size:12px;color:var(--muted);}
+.cbadge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;font-family:'DM Mono',monospace;}
+.cbadge.owing{background:var(--red-soft);color:var(--red);}
+.cbadge.settled{background:var(--green-soft);color:var(--green);}
+.c-body{display:none;padding:15px;border-top:1.5px solid var(--border);}
+.ccard.open .c-body{display:block;}
+
+.sbar{display:flex;gap:8px;margin-bottom:13px;}
+.sbi{flex:1;background:var(--subtle);border-radius:9px;padding:9px 12px;}
+.sbi-val{font-size:14px;font-weight:800;font-family:'DM Mono',monospace;}
+.sbi-lbl{font-size:10px;color:var(--muted);margin-top:2px;text-transform:uppercase;}
+
+.tx-item{display:flex;align-items:center;gap:9px;padding:8px 11px;background:var(--subtle);border-radius:8px;margin-bottom:4px;font-size:13px;}
+.tx-amt{font-weight:800;font-family:'DM Mono',monospace;margin-left:auto;}
+.tx-del{background:none;border:none;color:var(--border);cursor:pointer;padding:0 5px;}
+.tx-del:hover{color:var(--red);}
+
+.qe{background:var(--subtle);border-radius:10px;padding:12px;margin-top:10px;}
+.qe-row{display:flex;gap:8px;}
+.qe-f input{width:100%;border:1.5px solid var(--border);border-radius:7px;padding:6px 10px;}
+
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#fff;padding:11px 22px;border-radius:100px;font-size:13px;z-index:999;transition:transform .3s;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="h-left">
+      <div class="h-icon">📒</div>
+      <div class="h-title">
+        <h1>ShipBrands Debts</h1>
+        <p>Supabase Powered Tracking</p>
+      </div>
+    </div>
+    <div class="h-right">
+      <div class="h-stats">
+        <div class="hstat"><div class="hstat-val" id="statIndebted">—</div><div class="hstat-lbl">Indebted</div></div>
+        <div class="hstat hstat-outstanding"><div class="hstat-val" id="statOwing">—</div><div class="hstat-lbl">Outstanding</div></div>
+      </div>
+      <div id="syncLabel" style="font-size:10px;opacity:0.8;color:#4caf50;">Connecting...</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <span class="s-icon">🔍</span>
+      <input type="text" id="searchInput" placeholder="Search customers...">
+    </div>
+    <button class="btn btn-migrate" id="btnMigrate">🚀 Migrate Data</button>
+    <button class="btn btn-primary" id="btnNewCustomer">+ New Customer</button>
+    <button class="btn btn-ghost" id="btnRefresh">↻</button>
+  </div>
+
+  <div id="customersList"></div>
+</div>
+
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="m-hd"><h2 id="modalTitle">New Customer</h2></div>
+    <div class="fg">
+      <label>Name</label>
+      <input type="text" id="inpName" list="existingNames" autocomplete="off">
+      <datalist id="existingNames"></datalist>
+      <div id="duplicateWarning" style="color:#d63031;font-size:10px;margin-top:4px;display:none;font-weight:700;">⚠️ Name already exists!</div>
+    </div>
+    <div class="fg" id="initDebtWrap"><label>Initial Debt</label><input type="number" id="inpInitDebt" value="0"></div>
+    <div class="m-ft">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="btnSaveModal">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://gzaxqfcfawdcodfxejqn.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd6YXhxZmNmYXdkY29kZnhlanFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4NzUzMjUsImV4cCI6MjA5MjQ1MTMyNX0.NhXZ3PcTBH9n57cffIrb2mz-znj69OfKZ2z8CQEW1rY';
+
+let _supabase, customers = [], transactions = [], openCards = new Set();
+let editingId = null;
+
+const fmtMoney = n => '$' + Math.round(n || 0).toLocaleString();
+const getTx = cid => transactions.filter(t => t.customer_id === cid);
+const getBal = cid => getTx(cid).reduce((s,t) => s + (t.type === 'debt' ? +t.amount : -t.amount), 0);
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+const updateStatus = (msg, color='#4caf50') => {
+  const l = document.getElementById('syncLabel');
+  l.textContent = msg; l.style.color = color;
+};
+
+async function init() {
+  try {
+    if (!window.supabase) throw new Error('Supabase SDK not loaded');
+    _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    await load();
+  } catch(e) {
+    updateStatus('Error: SDK Load Failed', '#f44336');
+    console.error(e);
+  }
+}
+
+async function load() {
+  updateStatus('Syncing...');
+  try {
+    const { data: c, error: e1 } = await _supabase.from('debts_ledger_customers').select('*');
+    const { data: t, error: e2 } = await _supabase.from('debts_ledger_transactions').select('*');
+    
+    if (e1 || e2) throw (e1 || e2);
+
+    customers = c || [];
+    transactions = t || [];
+    
+    if (customers.length === 0) document.getElementById('btnMigrate').style.display = 'block';
+    else document.getElementById('btnMigrate').style.display = 'none';
+
+    updateStatus('Synced · ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}));
+    render();
+  } catch(e) {
+    updateStatus('Network Error', '#f44336');
+    toast('⚠️ Connection Error: ' + e.message);
+  }
+}
+
+function render() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const list = customers.filter(c => c.name.toLowerCase().includes(q));
+  
+  const totalOwing = customers.reduce((s,c) => s + Math.max(0, getBal(c.id)), 0);
+  const indebted = customers.filter(c => getBal(c.id) > 0).length;
+  
+  document.getElementById('statIndebted').textContent = indebted;
+  document.getElementById('statOwing').textContent = fmtMoney(totalOwing);
+  
+  const el = document.getElementById('customersList');
+  if (list.length === 0) {
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#78716c;">No records found.</div>';
+    return;
+  }
+
+  el.innerHTML = list.map(c => {
+    const bal = getBal(c.id);
+    const txs = getTx(c.id).reverse();
+    const avatarCol = '#1a1a2e';
+    return `
+    <div class="ccard ${openCards.has(c.id)?'open':''}" id="card-${c.id}">
+      <div class="c-hd" onclick="toggleCard('${c.id}')">
+        <div class="avatar" style="background:${avatarCol}">${c.name[0].toUpperCase()}</div>
+        <div style="flex:1"><div class="cname">${c.name}</div><div class="cmeta">${txs.length} records</div></div>
+        <div class="cbadge ${bal>0?'owing':'settled'}">${bal>0?fmtMoney(bal):'Settled ✓'}</div>
+      </div>
+      <div class="c-body">
+        <div class="sbar">
+          <div class="sbi"><div class="sbi-val">${fmtMoney(bal)}</div><div class="sbi-lbl">Balance</div></div>
+        </div>
+        <div class="tx-list">${txs.map(t => `
+          <div class="tx-item">
+            <span style="color:${t.type==='debt'?'#d63031':'#00897b'}">${t.type==='debt'?'Debt':'Pay'}</span>
+            <span class="tx-amt">${fmtMoney(t.amount)}</span>
+            <button class="tx-del" onclick="delTx('${t.id}')">✕</button>
+          </div>`).join('')}</div>
+        <div class="qe">
+          <div class="qe-row">
+            <input type="number" id="qa-${c.id}" placeholder="0" style="flex:1;outline:none;">
+            <button class="btn btn-primary" onclick="addTx('${c.id}','debt')">＋Debt</button>
+            <button class="btn" style="background:#00897b;color:#fff" onclick="addTx('${c.id}','pay')">＋Pay</button>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+           <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;" onclick="editCust('${c.id}')">Edit Name</button>
+           <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px;color:#d63031" onclick="delCust('${c.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(id) {
+  const card = document.getElementById('card-'+id);
+  card.classList.toggle('open');
+  card.classList.contains('open') ? openCards.add(id) : openCards.delete(id);
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('btnNewCustomer').onclick = () => {
+  editingId = null;
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('modalTitle').textContent = 'New Customer';
+  document.getElementById('inpName').value = '';
+  document.getElementById('inpInitDebt').value = '0';
+  document.getElementById('initDebtWrap').style.display = 'block';
+  document.getElementById('duplicateWarning').style.display = 'none';
+  document.getElementById('btnSaveModal').disabled = false;
+  
+  // Populate suggestions
+  const dl = document.getElementById('existingNames');
+  dl.innerHTML = customers.map(c => `<option value="${c.name}">`).join('');
+};
+
+document.getElementById('inpName').oninput = (e) => {
+  const val = e.target.value.trim().toLowerCase();
+  const exactMatch = customers.some(c => c.name.toLowerCase() === val && c.id !== editingId);
+  const warn = document.getElementById('duplicateWarning');
+  const btn = document.getElementById('btnSaveModal');
+  
+  if (exactMatch) {
+    warn.style.display = 'block';
+    btn.disabled = true;
+    btn.style.opacity = '0.5';
+  } else {
+    warn.style.display = 'none';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+};
+
+function editCust(id) {
+  const c = customers.find(x => x.id === id);
+  editingId = id;
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('modalTitle').textContent = 'Edit Name';
+  document.getElementById('inpName').value = c.name;
+  document.getElementById('initDebtWrap').style.display = 'none';
+  document.getElementById('duplicateWarning').style.display = 'none';
+  document.getElementById('btnSaveModal').disabled = false;
+  document.getElementById('btnSaveModal').style.opacity = '1';
+
+  const dl = document.getElementById('existingNames');
+  dl.innerHTML = customers.map(c => `<option value="${c.name}">`).join('');
+}
+
+document.getElementById('btnSaveModal').onclick = async () => {
+  const name = document.getElementById('inpName').value.trim();
+  if (!name) return;
+  updateStatus('Saving...');
+  try {
+    if (editingId) {
+       await _supabase.from('debts_ledger_customers').update({ name }).eq('id', editingId);
+    } else {
+       const id = Date.now().toString(36);
+       await _supabase.from('debts_ledger_customers').insert({ id, name });
+       const init = +document.getElementById('inpInitDebt').value;
+       if (init > 0) await _supabase.from('debts_ledger_transactions').insert({ id: id+'t', customer_id: id, type: 'debt', amount: init });
+    }
+    closeModal(); load();
+  } catch(e) { toast('Error saving'); }
+};
+
+async function addTx(cid, type) {
+  const amount = +document.getElementById('qa-'+cid).value;
+  if (amount > 0) {
+    updateStatus('Adding...');
+    await _supabase.from('debts_ledger_transactions').insert({ id: Date.now().toString(36), customer_id: cid, type, amount });
+    load();
+  }
+}
+
+async function delTx(tid) {
+  if (confirm('Delete this record?')) { 
+    updateStatus('Deleting...');
+    await _supabase.from('debts_ledger_transactions').delete().eq('id', tid); 
+    load(); 
+  }
+}
+
+async function delCust(id) {
+  if (confirm('Delete customer and all records?')) {
+    updateStatus('Deleting...');
+    await _supabase.from('debts_ledger_customers').delete().eq('id', id);
+    load();
+  }
+}
+
+document.getElementById('btnMigrate').onclick = async () => {
+  const dataC = [
+    { id: 'c1', name: 'Ahmad' }, { id: 'c2', name: 'Mohammad' }, { id: 'c3', name: 'Khalid' },
+    { id: 'c4', name: 'Omar' }, { id: 'c5', name: 'Zaid' }, { id: 'c6', name: 'Laila' },
+    { id: 'c7', name: 'Hasan' }, { id: 'c8', name: 'Sami' }, { id: 'c9', name: 'Fadi' },
+    { id: 'c10', name: 'Yousef' }, { id: 'c11', name: 'Nour' }, { id: 'c12', name: 'Sara' }
+  ];
+  const dataT = [
+    { id: 't1', customer_id: 'c1', type: 'debt', amount: 1000 }, { id: 't2', customer_id: 'c1', type: 'pay', amount: 500 },
+    { id: 't3', customer_id: 'c2', type: 'debt', amount: 2500 }, { id: 't4', customer_id: 'c3', type: 'debt', amount: 1500 },
+    { id: 't5', customer_id: 'c3', type: 'pay', amount: 1500 }, { id: 't6', customer_id: 'c4', type: 'debt', amount: 3000 },
+    { id: 't7', customer_id: 'c4', type: 'pay', amount: 1000 }, { id: 't8', customer_id: 'c5', type: 'debt', amount: 500 },
+    { id: 't9', customer_id: 'c6', type: 'debt', amount: 4500 }, { id: 't10', customer_id: 'c6', type: 'pay', amount: 2000 },
+    { id: 't11', customer_id: 'c7', type: 'debt', amount: 1200 }, { id: 't12', customer_id: 'c8', type: 'debt', amount: 800 },
+    { id: 't13', customer_id: 'c9', type: 'debt', amount: 2200 }, { id: 't14', customer_id: 'c10', type: 'debt', amount: 350 },
+    { id: 't15', customer_id: 'c11', type: 'debt', amount: 900 }, { id: 't16', customer_id: 'c12', type: 'debt', amount: 600 }
+  ];
+  
+  updateStatus('Migrating...');
+  try {
+    await _supabase.from('debts_ledger_customers').upsert(dataC);
+    await _supabase.from('debts_ledger_transactions').upsert(dataT);
+    toast('✅ Migration Successful!');
+    load();
+  } catch(e) { 
+    updateStatus('Migration Error', '#f44336');
+    alert('Error: ' + e.message); 
+  }
+};
+
+document.getElementById('btnRefresh').onclick = load;
+document.getElementById('searchInput').oninput = render;
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+init();
+</script>
+</body>
+</html>
