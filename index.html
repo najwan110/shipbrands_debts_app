@@ -87,6 +87,27 @@ header{background:var(--accent);color:#fff;border-radius:18px;padding:24px 28px;
 
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:#fff;padding:11px 22px;border-radius:100px;font-size:13px;z-index:999;transition:transform .3s;}
 .toast.show{transform:translateX(-50%) translateY(0);}
+
+/* MOBILE OPTIMIZATIONS */
+@media (max-width: 500px) {
+  .app { padding: 16px 12px; }
+  header { padding: 16px; flex-direction: column; align-items: flex-start; text-align: left; }
+  .h-right { align-items: flex-start; width: 100%; }
+  .h-stats { width: 100%; justify-content: space-between; }
+  .hstat { flex: 1; min-width: 0; padding: 8px 4px; }
+  .hstat-val { font-size: 15px; }
+  
+  .controls { gap: 6px; }
+  .btn { padding: 8px 12px; font-size: 13px; }
+  
+  .qe-row { flex-wrap: wrap; }
+  .qe-row input { min-width: 100%; margin-bottom: 8px; }
+  .qe-row .btn { flex: 1; justify-content: center; }
+  
+  .c-hd { padding: 12px; }
+  .cname { font-size: 14px; }
+  .cbadge { padding: 4px 8px; font-size: 11px; }
+}
 </style>
 </head>
 <body>
